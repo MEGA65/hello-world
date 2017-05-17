@@ -31,3 +31,8 @@
 # Debug files
 *.dSYM/
 *.su
+
+# cc65
+*.map
+*.s
+*.prg
