@@ -1,23 +1,33 @@
-COPT=	-Wall -g -std=gnu99
-CC=	gcc
-OPHIS=	Ophis/bin/ophis
+COPT=		-Wall -g -std=gnu99
+CC=			gcc
+
+OPHISDIR=	Ophis
+OPHIS=		$(OPHISDIR)/bin/ophis
 OPHISOPT=	-4
-OPHIS_MON= Ophis/bin/ophis -c
+OPHIS_MON= 	$(OPHISDIR)/bin/ophis -c
 
-CC65=	cc65/bin/cc65
-CL65=	cc65/bin/cl65
+CC65DIR= 	cc65
+CC65=		$(CC65DIR)/bin/cc65
+CL65=		$(CC65DIR)/bin/cl65
+CA65=		$(CC65DIR)/bin/ca65 --cpu 4510
+LD65=		$(CC65DIR)/bin/ld65 -t none
 
-CA65=	cc65/bin/ca65 --cpu 4510
-LD65=	cc65/bin/ld65 -t none
+CBMCONVDIR= cbmconvert
+CBMCONVERT=	$(CBMCONVDIR)/cbmconvert
 
-CBMCONVERT=	cbmconvert/cbmconvert
+XEMUDIR=	../xemu
+COREDIR=	../mega65-core
+MONLOAD=	$(COREDIR)/src/tools/monitor_load
+BITSTRM=	$(COREDIR)/bin/nexys4ddr.bit
+KICKUP=		$(COREDIR)/bin/KICKUP.M65
+CHARROM=	$(COREDIR)/charrom.bin
+C65SYSROM=	$(XEMUDIR)/rom/c65-system.rom
 
-
-COPTS=	-t c64 -O -Or -Oi -Os --cpu 65c02
-LOPTS=	-C c64-m65.cfg
+COPTS=		-t c64 -O -Or -Oi -Os --cpu 65c02 -I$(CC65DIR)/include
+LOPTS=		-C c64-m65.cfg --asm-include-dir $(CC65DIR)/asminc --lib-path $(CC65DIR)/lib
 
 FILES=		hello.prg \
-		autoboot.c65
+			autoboot.c65
 
 SOURCES=	main.c 
 
@@ -43,14 +53,20 @@ DISK.D81:	$(CBMCONVERT) $(FILES)
 	if [ -a DISK.D81 ]; then rm -f DISK.D81; fi
 	$(CBMCONVERT) -v2 -D8o DISK.D81 $(FILES)
 
-%.s:	%.c $(HEADERS) $(DATAFILES) $(CC65)
+%.s:		%.c $(HEADERS) $(DATAFILES) $(CC65)
 	$(CC65) $(COPTS) -o $@ $<
 
-hello.prg:	$(CC65) $(ASSFILES) c64-m65.cfg
+hello.prg:	$(ASSFILES) c64-m65.cfg
 	$(CL65) $(COPTS) $(LOPTS) -vm -m hello.map -o hello.prg $(ASSFILES)
 
 clean:
-	rm *.s *.prg *.o *.D81 *.map *.mem
+	rm -f *.s *.prg *.o *.D81 *.map *.mem
 
-test:	DISK.D81
-	../xemu/build/bin/xc65.native -8 DISK.D81
+test: 		DISK.D81
+	$(XEMUDIR)/build/bin/xc65.native -8 DISK.D81
+
+$(MONLOAD):
+	make -f $(COREDIR)/Makefile $(MONLOAD)
+
+load: 		$(MONLOAD) hello.prg
+	$(MONLOAD) -b $(BITSTRM) -R $(C65SYSROM) -k $(KICKUP) -C $(CHARROM) -4 -r hello.prg
