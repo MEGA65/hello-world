@@ -16,12 +16,14 @@ CBMCONVDIR= cbmconvert
 CBMCONVERT=	$(CBMCONVDIR)/cbmconvert
 
 XEMUDIR=	../xemu
+XC65=		$(XEMUDIR)/build/bin/xc65.native
+C65SYSROM=	$(XEMUDIR)/rom/c65-system.rom
+
 COREDIR=	../mega65-core
 MONLOAD=	$(COREDIR)/src/tools/monitor_load
 BITSTRM=	$(COREDIR)/bin/nexys4ddr.bit
 KICKUP=		$(COREDIR)/bin/KICKUP.M65
 CHARROM=	$(COREDIR)/charrom.bin
-C65SYSROM=	$(XEMUDIR)/rom/c65-system.rom
 
 COPTS=		-t c64 -O -Or -Oi -Os --cpu 65c02 -I$(CC65DIR)/include
 LOPTS=		-C c64-m65.cfg --asm-include-dir $(CC65DIR)/asminc --lib-path $(CC65DIR)/lib
@@ -62,11 +64,17 @@ hello.prg:	$(ASSFILES) c64-m65.cfg
 clean:
 	rm -f *.s *.prg *.o *.D81 *.map *.mem
 
-test: 		DISK.D81
-	$(XEMUDIR)/build/bin/xc65.native -8 DISK.D81
+$(XC65):
+	cd $(XEMUDIR)/targets/c65 && make
+
+$(C65SYSROM):
+	cd $(XEMUDIR)/rom && make c65-system.rom
+
+test: 		$(XC65) $(C65SYSROM) DISK.D81
+	$(XC65) -rom $(C65SYSROM) -8 DISK.D81
 
 $(MONLOAD):
-	make -f $(COREDIR)/Makefile $(MONLOAD)
+	cd $(COREDIR) && make src/tools/monitor_load
 
-load: 		$(MONLOAD) hello.prg
+load: 		$(MONLOAD) $(C65SYSROM) hello.prg
 	$(MONLOAD) -b $(BITSTRM) -R $(C65SYSROM) -k $(KICKUP) -C $(CHARROM) -4 -r hello.prg
